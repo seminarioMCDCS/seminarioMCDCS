@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>EcoCommunity</title>
+
+  <!-- Tailwind & fonts -->
+  <link rel="preconnect" href="https://fonts.gstatic.com/" crossorigin />
+  <link rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?display=swap&family=Inter:wght@400;500;700;900&family=Noto+Sans:wght@400;500;700;900"/>
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+
+  <!-- Leaflet (sem SRI) -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <script defer src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+</head>
+
+<body>
+<div class="relative flex min-h-screen flex-col bg-gray-50"
+     style='font-family: Inter, "Noto Sans", sans-serif;'>
+
+  <!-- Hero + Form -->
+  <div class="px-10 flex flex-col items-center py-16">
+    <div class="w-full max-w-3xl text-center">
+      <h1 class="text-4xl font-black text-[#101518] leading-tight mb-2">
+        Descobre o potencial de criar uma Comunidade de Energia Renovável na tua vizinhança 🏡
+      </h1>
+      <p class="text-[#5c778a] mb-6">
+          Podes inserir uma morada ou clicar diretamente no mapa para descobrir o potencial da tua zona. 💡
+      </p>
+
+      <form id="addrForm" method="POST" action="/" class="max-w-xl mx-auto">
+  <div class="relative flex items-stretch">
+    <input id="address" name="address" autocomplete="off"
+           placeholder="e.g. Universidade de Aveiro, Aveiro"
+           class="form-input flex-1 rounded-l-xl border border-[#d4dde2] bg-gray-50 px-4 text-[#101518]"
+           value="{{ address_input }}">
+    <button class="rounded-r-xl bg-[#b2d1e5] px-5 text-sm font-bold text-[#101518]">
+      Verifica a viabilidade
+    </button>
+
+    <!-- Hidden lat/lon -->
+    <input type="hidden" id="lat" name="lat" value="{{ lat|default('', true) }}">
+    <input type="hidden" id="lon" name="lon" value="{{ lon|default('', true) }}">
+
+    <!-- dropdown -->
+    <ul id="suggestions"
+        class="absolute left-0 right-0 top-full bg-white border border-gray-200
+               rounded-b-xl shadow max-h-60 overflow-y-auto hidden z-[1000]"></ul>
+  </div>
+
+  <!-- Mensagens de erro -->
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      <div class="mt-2">
+        {% for category, message in messages %}
+          <div class="text-sm p-3 rounded-md text-red-800 bg-red-100 border border-red-200 mb-2">
+            Ainda não temos informações para essa zona. Quem sabe para breve? 🙂
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  {% endwith %}
+</form>
+
+      
+      <!-- Mapa -->
+      <div id="map" style="height:18rem;width:100%;"
+           class="mt-6 max-w-xl mx-auto rounded-xl shadow"></div>
+    </div>
+  </div>
+
+  <!-- Spinner + factos -->
+  <div id="loadingFacts"
+       class="hidden fixed inset-0 z-[1100] flex flex-col items-center justify-center text-center
+              bg-white bg-opacity-80 space-y-6 px-6">
+    <svg class="animate-spin h-12 w-12 text-[#5c778a]" xmlns="http://www.w3.org/2000/svg" fill="none"
+         viewBox="0 0 24 24">
+      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+      <path class="opacity-75" fill="currentColor"
+            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+    </svg>
+    <p id="factText" class="text-lg sm:text-xl font-medium text-[#5c778a] max-w-2xl">
+      A calcular viabilidade... ⏳
+    </p>
+  </div>
+
+  {% if show_results %}
+  <!-- Resultados -->
+  <div class="px-10">
+    <h2 class="text-xl font-bold text-[#101518] mb-4">Resultados 📊</h2>
+    <div class="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 items-stretch">
+      <div class="p-6 bg-white rounded-xl border border-[#d4dde2] flex flex-col">
+        <h3 class="text-base font-bold mb-2">Consumo Energético vs Luz do Sol ☀️</h3>
+        <p class="text-sm text-[#5c778a] flex-1">{{ assessment_text }}</p>
+        <p class="mt-2 text-sm font-semibold text-[#101518]">🔗 Correlação: {{ correlation }}</p>
+        <img class="mt-4 rounded-lg shadow" src="data:image/png;base64,{{ plot_png }}" alt="Gráfico">
+      </div>
+      <div class="p-6 bg-white rounded-xl border border-[#d4dde2] flex flex-col">
+        <h3 class="text-base font-bold mb-2">Número de moradores 🧑‍🤝‍🧑</h3>
+        <p class="text-sm text-[#5c778a] flex-1">Estimamos que {{ num_residents }} pessoas vivam na tua área. Mais pessoas numa área significa mais consumo de energia ao longo do dia — e isso torna mais viável criar uma comunidade de energias renováveis. Com mais gente, é mais fácil partilhar custos e maximizar os benefícios da produção local. 🌱</p>
+      </div>
+      <div class="p-6 bg-white rounded-xl border border-[#d4dde2] flex flex-col">
+        <h3 class="text-base font-bold mb-2">Número de Negócios 🏢</h3>
+        <p class="text-sm text-[#5c778a] flex-1">Estimamos que haja {{ num_businesses }} serviços ligados à tua rede de baixa tensão. Quando falamos em “serviços”, estamos a contar coisas como cafés, supermercados, escolas, clínicas, bancos, restaurantes, escritórios e até zonas industriais. No fundo, tudo o que está aberto durante o dia. 🏪</p>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+</div> <!-- /wrapper -->
+
+<!-- JS tudo no load -->
+<script>
+window.addEventListener("load", () => {
+
+  /* Leaflet -------------------------------------------------- */
+  if (typeof L === "undefined") {
+    console.error("Leaflet não carregou.");
+    return;
+  }
+
+  // Recuperar coordenadas persistidas (sessionStorage ou inputs)
+  const latInput = document.getElementById("lat");
+  const lonInput = document.getElementById("lon");
+
+  // 1º tentar sessionStorage, depois input hidden, depois default PT
+  let initLat = parseFloat(sessionStorage.getItem("mapLat")) || parseFloat(latInput.value) || 41.4413430564146;
+  let initLon = parseFloat(sessionStorage.getItem("mapLon")) || parseFloat(lonInput.value) || -8.295048837568363;
+
+  const map = L.map("map", { scrollWheelZoom: false }).setView([initLat, initLon], (initLat === 39.5 && initLon === -8) ? 6 : 14);
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom: 19, attribution: "&copy; OpenStreetMap"
+  }).addTo(map);
+
+  const marker = L.marker([initLat, initLon]).addTo(map);
+
+  window.updateMap = (lat, lon) => {
+    marker.setLatLng([lat, lon]);
+    map.setView([lat, lon], 14);
+    map.invalidateSize();
+    // Guardar para reload
+    sessionStorage.setItem("mapLat", lat);
+    sessionStorage.setItem("mapLon", lon);
+    // Actualizar inputs hidden (submissão backend)
+    latInput.value = lat;
+    lonInput.value = lon;
+  };
+
+  map.on("click", async e => {
+    const { lat, lng: lon } = e.latlng;
+    try {
+      const r = await fetch(`https://photon.komoot.io/reverse?lat=${lat}&lon=${lon}&limit=1`);
+      const js = await r.json();
+      if (js.features?.length) {
+        const p = js.features[0].properties;
+        const txt = `${p.name || ""}, ${p.city || ""}, ${p.country || ""}`.replace(/^[ ,]+|[ ,]+$/g, "");
+        document.getElementById("address").value = txt;
+        window.updateMap(lat, lon);
+      }
+    } catch (err) { console.warn("reverse-geocode falhou", err); }
+  });
+
+  /* Autocomplete -------------------------------------------- */
+const input = document.getElementById("address");
+const list = document.getElementById("suggestions");
+let controller;
+let debounceTimeout;
+
+input.addEventListener("input", () => {
+  const q = input.value.trim();
+  if (q.length < 3) {
+    list.classList.add("hidden");
+    return;
+  }
+
+  clearTimeout(debounceTimeout);
+  debounceTimeout = setTimeout(async () => {
+    if (controller) controller.abort();
+    controller = new AbortController();
+    try {
+      const res = await fetch(`https://photon.komoot.io/api/?q=${encodeURIComponent(q)}&limit=5`,
+        { signal: controller.signal });
+      const js = await res.json();
+      list.innerHTML = "";
+      js.features.forEach(f => {
+        const p = f.properties;
+        const txt = `${p.name || ""}, ${p.city || ""}, ${p.country || ""}`.replace(/^[ ,]+|[ ,]+$/g, "");
+        const [lon, lat] = f.geometry.coordinates;
+        const li = document.createElement("li");
+        li.textContent = txt;
+        li.className = "px-4 py-2 cursor-pointer hover:bg-gray-100 text-sm";
+        li.onclick = () => {
+          input.value = txt;
+          list.classList.add("hidden");
+          window.updateMap(lat, lon);
+        };
+        list.appendChild(li);
+      });
+      list.classList.toggle("hidden", list.children.length === 0);
+    } catch {
+      // ignora erros
+    }
+  }, 200); // <- debounce: espera 200ms após parar de digitar
+});
+
+  /* Spinner + factos ---------------------------------------- */
+  const facts = [
+    "☀️ O Sol fornece energia suficiente em 1 hora para um ano inteiro da Terra.",
+    "🌥️ Os painéis solares funcionam mesmo em dias nublados.",
+    "🇵🇹 Portugal está entre os países mais soalheiros da Europa.",
+    "🔋 Portugal já teve dias 100% renováveis – com ajuda do Sol.",
+    "🛠️ Os painéis solares têm longa duração e pouca manutenção.",
+    "🎯 Portugal quer eliminar combustíveis fósseis até 2040.",
+    "🏞️ Há painéis flutuantes em barragens como Alqueva.",
+    "📉 A energia solar é cada vez mais barata em todo o mundo.",
+    "💶 Existem incentivos em Portugal para instalar painéis.",
+    "🌍 Os painéis não produzem emissões durante o funcionamento."
+  ];
+  const form = document.getElementById("addrForm");
+  const loading = document.getElementById("loadingFacts");
+  const factText = document.getElementById("factText");
+  form.addEventListener("submit", () => {
+    loading.classList.remove("hidden");
+    let i = 0;
+    factText.textContent = facts[i];
+    const interval = setInterval(() => { i = (i + 1) % facts.length; factText.textContent = facts[i]; }, 7000);
+    setTimeout(() => clearInterval(interval), 120000);
+  });
+
+});
+</script>
+</body>
+</html>
