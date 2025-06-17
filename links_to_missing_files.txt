@@ -1,0 +1,4 @@
+Due to limitations on GitHub uploads (25MB file size limit), we had to upload two relevant files to Google Drive - which may and should be downloaded before running the notebooks and webapp.
+
+The first of them is perc_cp_PTD (which should go into both the "data" and "webapp" folders), available at https://drive.google.com/file/d/1KjLa90LPlGY0bpPVbl-dEkXrvGjZq0jH/view?usp=sharing
+The second, a process_notebook with an interactive map, is available at https://drive.google.com/file/d/12tmM0IQeaJn6vUUbSb9pf1uXf9qYsKbI/view?usp=sharing
