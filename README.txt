@@ -1,10 +1,10 @@
-============= RENEWABLE ENERGY COMMUNITIES VIABILITY ==============
+============== RENEWABLE ENERGY COMMUNITIES VIABILITY ===============
 
 Filipa Santos (filipamfsantos@ua.pt)
 Margarida Santos (mh.santos@ua.pt)
 Heitor Leme (heitorcgl@ua.pt)
 
-===================================================================
+=====================================================================
 
 Work developed throughout the 2024/25 Spring Semester of the Masters in Data Science for Social Sciences @ DCSPT, Universidade de Aveiro, Aveiro, Portugal, as part of the Seminário course.
 
